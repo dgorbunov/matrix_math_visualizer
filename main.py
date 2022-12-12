@@ -29,6 +29,10 @@ class App(QWidget):
     app_width = 0
     app_height = 0
 
+    cv_img_temp = None
+    cv_img2_temp = None
+    cv_out_temp = None
+
     def __init__(self, width, height):
         super().__init__()
         cv_imgs = read_img_from_file()
@@ -65,14 +69,17 @@ class App(QWidget):
         self.color_button = QPushButton("Grayscale")
         self.color_button.clicked.connect(self.color_button_f)
 
-        blur_button = QPushButton("Blur...")
+        blur_button = QPushButton("Kernel Blur...")
         blur_button.clicked.connect(self.blur_button)
 
         add_button = QPushButton("Linear Combination...")
         add_button.clicked.connect(self.add_button)
 
-        mult_button = QPushButton("Multiplication/Division...")
+        mult_button = QPushButton("Element-Wise Multiplication")
         mult_button.clicked.connect(self.mult_button)
+
+        matrix_mult_button = QPushButton("Dot Product")
+        matrix_mult_button.clicked.connect(self.mult_button)
 
         bitwise_button = QPushButton("Bitwise Operations...")
         bitwise_button.clicked.connect(self.bitwise_button)
@@ -80,7 +87,7 @@ class App(QWidget):
         transpose_button = QPushButton("Transpose")
         transpose_button.clicked.connect(self.transpose_button)
 
-        rotate_button = QPushButton("Rotate")
+        rotate_button = QPushButton("Rotate...")
         rotate_button.clicked.connect(self.rotate_button)
 
         reset_button = QPushButton("Reset")
@@ -112,9 +119,10 @@ class App(QWidget):
         vbox.addWidget(blur_button)
         vbox.addWidget(add_button)
         vbox.addWidget(mult_button)
+        vbox.addWidget(matrix_mult_button)
         vbox.addWidget(bitwise_button)
-        vbox.addWidget(transpose_button)
         vbox.addWidget(rotate_button)
+        vbox.addWidget(transpose_button)
         vbox.addWidget(reset_button)
         # set the vbox layout as the widgets layout
         self.setLayout(vbox)
@@ -143,13 +151,47 @@ class App(QWidget):
 
     # button callback
     def rotate_button(self):
+        print("Rotating")
+
+        self.cv_img_temp = self.cv_img
+        self.cv_img2_temp = self.cv_img2
+        self.cv_out_temp = self.cv_out
+
+        self.w = RotateWindow()
+        self.w.setGeometry(popup_size)
+        self.w.show()
+
+    # function callback
+    def rotate(self, theta, cv_img):
         cols = self.cv_out.shape[0]
         rows = self.cv_out.shape[1]
-        theta = 30
 
-        M = cv2.getRotationMatrix2D((cols/2,rows/2), theta, 1)
-        self.cv_out = cv2.warpAffine(self.cv_out, M, (cols,rows))
-        self.update_out()
+        M = cv2.getRotationMatrix2D((cols/2,rows/2), int(float(theta)), 1)
+
+        if cv_img == image_name:
+            self.cv_img2 = self.cv_img2_temp
+            self.cv_out = self.cv_out_temp
+            self.update_img2()
+            self.update_out()
+
+            self.cv_img = cv2.warpAffine(self.cv_img_temp, M, (cols,rows))
+            self.update_img()
+        elif cv_img == image2_name:
+            self.cv_img = self.cv_img_temp
+            self.cv_out = self.cv_out_temp
+            self.update_img()
+            self.update_out()
+
+            self.cv_img2 = cv2.warpAffine(self.cv_img2_temp, M, (cols,rows))
+            self.update_img2()
+        else :
+            self.cv_img = self.cv_img_temp
+            self.cv_img2 = self.cv_img2_temp
+            self.update_img()
+            self.update_img2()
+
+            self.cv_out = cv2.warpAffine(self.cv_out_temp, M, (cols,rows))
+            self.update_out()
 
     # button callback
     def blur_button(self):
@@ -159,9 +201,8 @@ class App(QWidget):
         self.w.setGeometry(popup_size)
         self.w.show()
 
-    # math calculations
+    # function callback
     def blur(self, kernel_size, img_select):
-        image = None
         if img_select == image_name:
             self.cv_img = cv2.blur(self.cv_img, kernel_size)
             self.update_img()
@@ -181,7 +222,7 @@ class App(QWidget):
         self.w.setGeometry(popup_size)
         self.w.show()
 
-    # math calculations
+    # function callback
     def add(self, k1, k2):
         self.cv_out = k1 * self.cv_img + k2 * self.cv_img2
         self.cv_out = np.around(self.cv_out).astype(np.uint8)
@@ -189,14 +230,60 @@ class App(QWidget):
 
     # button callback
     def mult_button(self):
-        print("Image multiplied")
+        print("Element-Wise Multiplication")
         self.cv_out = np.multiply(self.cv_img, self.cv_img2)
         self.update_out()
 
     # button callback
+    def mult_button(self):
+        print("Dot Product")
+        if len(self.cv_img.shape) == 3:
+            bo,go,ro = cv2.split(self.cv_out)
+            b1,g1,r1 = cv2.split(self.cv_img)
+            b2,g2,r2 = cv2.split(self.cv_img2)
+            bo = np.dot(b1, b2)
+            go = np.dot(g1, g2)
+            ro = np.dot(r1, r2)
+
+            self.cv_out = cv2.merge([bo,go,ro])
+        else:
+            self.cv_out = np.dot(self.cv_img, self.cv_img2)
+
+        self.update_out()
+
+    # button callback
     def bitwise_button(self):
-        print("Image bitwised")
-        self.cv_out = cv2.bitwise_xor(self.cv_img, self.cv_img2)
+        print("Bitwise Operation")
+
+        self.w = BitwiseWindow()
+        self.w.setGeometry(popup_size)
+        self.w.show()
+
+    # function callback
+    def bitwise(self, cv_img, cv_img2, operation):
+        if cv_img == image_name:
+            cv_img = self.cv_img
+        elif cv_img == image2_name:
+            cv_img = self.cv_img2
+        else:
+            cv_img = self.cv_out
+
+        if cv_img2 == image_name:
+            cv_img2 = self.cv_img
+        elif cv_img2 == image2_name:
+            cv_img2 = self.cv_img2
+        else:
+            cv_img2 = self.cv_out
+
+        if operation == "AND" :
+            self.cv_out = cv2.bitwise_and(cv_img, cv_img2)
+        elif operation == "OR":
+            self.cv_out = cv2.bitwise_or(cv_img, cv_img2)
+        elif operation == "XOR":
+            self.cv_out = cv2.bitwise_xor(cv_img, cv_img2)
+        else:
+            self.cv_out = cv2.bitwise_not(cv_img, cv_img2)
+
         self.update_out()
 
     # button callback
@@ -239,7 +326,7 @@ class App(QWidget):
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
         convert_to_Qt_format = QtGui.QImage(rgb_image.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
-        p = convert_to_Qt_format.scaled(self.app_width / 4, self.app_width / 4, Qt.KeepAspectRatio)
+        p = convert_to_Qt_format.scaled(int(self.app_width / 4), int(self.app_width / 4), Qt.KeepAspectRatio)
         return QPixmap.fromImage(p)
 
 
@@ -378,6 +465,90 @@ class BlurWindow(QWidget):
 
         a.blur((self.k1, self.k2), self.img_select.currentText())
 
+class BitwiseWindow(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Bitwise Operation")
+
+        self.img_select = QComboBox()
+        self.img_select.addItem(image_name)
+        self.img_select.addItem(image2_name)
+        self.img_select.addItem(output_name)
+
+        self.img2_select = QComboBox()
+        self.img2_select.addItem(image_name)
+        self.img2_select.addItem(image2_name)
+        self.img2_select.addItem(output_name)
+
+        self.operator_select = QComboBox()
+        self.operator_select.addItem("AND")
+        self.operator_select.addItem("OR")
+        self.operator_select.addItem("XOR")
+        self.operator_select.addItem("NOT")
+
+        self.out = QLabel("= " + output_name)
+
+        self.img_select.currentTextChanged.connect(self.bitwise)
+        self.img2_select.currentTextChanged.connect(self.bitwise)
+        self.operator_select.currentTextChanged.connect(self.bitwise)
+
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.img_select)
+        hbox.addWidget(self.operator_select)
+        hbox.addWidget(self.img2_select)
+        hbox.addWidget(self.out)
+
+        self.setLayout(hbox)
+
+        self.bitwise()
+
+
+    def bitwise(self):
+        a.bitwise(self.img_select.currentText(), self.img2_select.currentText(), self.operator_select.currentText())
+
+class RotateWindow(QWidget):
+    theta = 30.0
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Rotation")
+
+        self.img_select = QComboBox()
+        self.img_select.addItem(image_name)
+        self.img_select.addItem(image2_name)
+        self.img_select.addItem(output_name)
+
+        self.thetaLine = QLineEdit()
+        self.thetaLine.setText(str(self.theta))
+        self.thetaLine.move(20, 20)
+        self.thetaLine.resize(140,20)
+
+        self.img_select.currentTextChanged.connect(self.rotate)
+        self.thetaLine.textChanged.connect(self.rotate)
+
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.thetaLine)
+        hbox.addWidget(self.img_select)
+
+        self.setLayout(hbox)
+
+        self.rotate()
+
+
+    def rotate(self):
+        if (self.thetaLine.text() == ''):
+            self.theta = 0
+        else :
+            try:
+                self.theta = float(self.thetaLine.text())
+            except ValueError:
+                print('Please enter a float in field 1')
+
+        a.rotate(self.theta, self.img_select.currentText())
+
 def main() :
     app = QApplication(sys.argv)
 
@@ -394,58 +565,3 @@ def main() :
 
 if __name__=="__main__":
     main()
-
-
-# def mathTex_to_QPixmap(self, mathTex, fs):
-#
-#     # set up a mpl figure instance
-#     fig = plt.figure()
-#     fig.patch.set_facecolor('none')
-#     fig.set_canvas(FigureCanvasAgg(fig))
-#     renderer = fig.canvas.get_renderer()
-#
-#     # plot the mathTex expression
-#     ax = fig.add_axes([0, 0, 1, 1])
-#     ax.axis('off')
-#     ax.patch.set_facecolor('none')
-#     t = ax.text(0, 0, mathTex, ha='left', va='bottom', fontsize=fs)
-#
-#     # fit figure size to text artist
-#     fwidth, fheight = fig.get_size_inches()
-#     fig_bbox = fig.get_window_extent(renderer)
-#
-#     text_bbox = t.get_window_extent(renderer)
-#
-#     tight_fwidth = text_bbox.width * fwidth / fig_bbox.width
-#     tight_fheight = text_bbox.height * fheight / fig_bbox.height
-#
-#     fig.set_size_inches(tight_fwidth, tight_fheight)
-#
-#     # convert mpl figure to QPixmap
-#     buf, size = fig.canvas.print_to_buffer()
-#     qimage = QtGui.QImage.rgbSwapped(QtGui.QImage(buf, size[0], size[1], QtGui.QImage.Format_ARGB32))
-#     qpixmap = QtGui.QPixmap(qimage)
-#
-#     return qpixmap
-
-    # img = cv2.imread("image.png", cv2.IMREAD_COLOR) # convert to 3 channel BGR color
-    # overlay = cv2.imread("overlay.png", cv2.IMREAD_ANYCOLOR) # include alpha channel for overlay
-    #
-    # resizeX = 512 # number of pixels across x axis to scale image to
-    #
-    # img_width = int(img.shape[1] * resizeX/img.shape[0])
-    # img_height = int(img.shape[0] * resizeX/img.shape[0])
-    #
-    # img_resized = cv2.resize(img, (img_width, img_height), interpolation = cv2.INTER_AREA) # resize, preserve aspect ratio
-    # overlay_resized = cv2.resize(overlay, (img_width, img_height), interpolation = cv2.INTER_AREA) # resize, preserve aspect ratio
-    #
-    # print('Image of dimensions ', img.shape, ' resized to ', img_resized.shape)
-    # print('Overlay of dimensions ', overlay.shape, ' resized to ', overlay_resized.shape)
-    # img = img_resized
-    # overlay = overlay_resized
-    #
-    # img = img + overlay
-    #
-    # cv2.imshow('Matrix Operations Visualizer', img)
-    # cv2.waitKey(0);
-    # cv2.destroyAllWindows();
