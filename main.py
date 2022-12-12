@@ -7,18 +7,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox
-from PyQt5.QtGui import QPixmap, QImage, QColor
+from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox, QLineEdit
+from PyQt5.QtGui import QPixmap, QImage, QColor, QIntValidator
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt,QObject, QRect
-
-from add import AddWindow
 
 # mpl.rcParams["text.usetex"] = True
 # mpl.rcParams['text.latex.preamble'] = r'\usepackage{{amsmath}}'
 
-image_name = 'images/image.png'
-image2_name = 'images/image2.png'
-output_name = 'images/output.png'
+image_path = 'images/'
+image_name = 'image.png'
+image2_name = 'image2.png'
+output_name = 'output.png'
 
 popup_size = QRect(100, 100, 400, 200)
 output_size = 1024, 1024, 3
@@ -29,6 +28,7 @@ class App(QWidget):
     cv_out = np.zeros(output_size, dtype=np.uint8)
     app_width = 0
     app_height = 0
+    AddWindow = None
 
     def __init__(self, width, height):
         super().__init__()
@@ -42,23 +42,23 @@ class App(QWidget):
 
     # init UI elements
     def initUI(self):
-        self.setWindowTitle("Image Matrix Operations Visualizer")
+        self.setWindowTitle("Matrix Math Visualizer")
         self.display_width = 640
         self.display_height = 480
 
         self.image = QLabel(self)
         self.image.setAlignment(Qt.AlignCenter)
-        self.image_text = QLabel(image_name.removeprefix("images/") + " (" + str(self.cv_img.shape[0]) + "x" + str(self.cv_img.shape[1]) + ")")
+        self.image_text = QLabel(image_name + " (" + str(self.cv_img.shape[0]) + "x" + str(self.cv_img.shape[1]) + ")")
         self.image_text.setAlignment(Qt.AlignCenter)
 
         self.image2 = QLabel(self)
         self.image2.setAlignment(Qt.AlignCenter)
-        self.image2_text = QLabel(image2_name.removeprefix("images/") + " (" + str(self.cv_img2.shape[0]) + "x" + str(self.cv_img2.shape[1]) + ")")
+        self.image2_text = QLabel(image2_name + " (" + str(self.cv_img2.shape[0]) + "x" + str(self.cv_img2.shape[1]) + ")")
         self.image2_text.setAlignment(Qt.AlignCenter)
 
         self.output = QLabel(self)
         self.output.setAlignment(Qt.AlignCenter)
-        self.output_text = QLabel(output_name.removeprefix("images/") + " (" + str(self.cv_out.shape[0]) + "x" + str(self.cv_out.shape[1]) + ")")
+        self.output_text = QLabel(output_name + " (" + str(self.cv_out.shape[0]) + "x" + str(self.cv_out.shape[1]) + ")")
         self.output_text.setAlignment(Qt.AlignCenter)
 
         # self.setFixedWidth(self.display_width)
@@ -145,11 +145,14 @@ class App(QWidget):
     # button callback
     def add_button(self):
         print("Image added")
+
         self.addWindow = AddWindow()
         self.addWindow.setGeometry(popup_size)
         self.addWindow.show()
 
-        self.cv_out = self.cv_img + self.cv_img2
+    def add(self, k1, k2):
+        print('hit', k1, k2)
+        self.cv_out = k1 * self.cv_img + k2 * self.cv_img2
         self.update_out()
 
     # button callback
@@ -184,17 +187,18 @@ class App(QWidget):
     # update q
     def update_img(self):
         self.image.setPixmap(self.convert_cv_qt(self.cv_img))
-        self.image_text = QLabel(image_name.removeprefix("images/") + " (" + str(self.cv_img.shape[0]) + "x" + str(self.cv_img.shape[1]) + ")")
+        self.image_text = QLabel(image_name + " (" + str(self.cv_img.shape[0]) + "x" + str(self.cv_img.shape[1]) + ")")
         self.image_text.setAlignment(Qt.AlignCenter)
 
     def update_img2(self):
         self.image2.setPixmap(self.convert_cv_qt(self.cv_img2))
-        self.image2_text = QLabel(image_name.removeprefix("images/") + " (" + str(self.cv_img2.shape[0]) + "x" + str(self.cv_img2.shape[1]) + ")")
+        self.image2_text = QLabel(image2_name + " (" + str(self.cv_img2.shape[0]) + "x" + str(self.cv_img2.shape[1]) + ")")
         self.image2_text.setAlignment(Qt.AlignCenter)
 
     def update_out(self):
+        print('writing out')
         self.output.setPixmap(self.convert_cv_qt(self.cv_out))
-        self.output_text = QLabel(image_name.removeprefix("images/") + " (" + str(self.cv_out.shape[0]) + "x" + str(self.cv_out.shape[1]) + ")")
+        self.output_text = QLabel(output_name + " (" + str(self.cv_out.shape[0]) + "x" + str(self.cv_out.shape[1]) + ")")
         self.output_text.setAlignment(Qt.AlignCenter)
         write_img_to_file(self.cv_out)
 
@@ -210,19 +214,75 @@ class App(QWidget):
 
 def read_img_from_file() :
     print("Loading images...")
+
+    image_loc = image_path + image_name
+    image2_loc = image_path + image2_name
     # load image
-    if not os.path.isfile(image_name) :
+    if not os.path.isfile(image_loc) :
         print("Missing image file of name", image_name)
-        raise OSError(errno.ENOENT, "Missing image file at", image_name)
+        raise OSError(errno.ENOENT, "Missing image file at", image_loc)
 
-    if not os.path.isfile(image2_name) :
+    if not os.path.isfile(image2_loc) :
         print("Missing image file of name", image2_name)
-        raise OSError(errno.ENOENT, "Missing image file at", image2_name)
+        raise OSError(errno.ENOENT, "Missing image file at", image2_loc)
 
-    return cv2.imread(image_name, cv2.IMREAD_ANYCOLOR), cv2.imread(image2_name, cv2.IMREAD_ANYCOLOR)
+    return cv2.imread(image_loc, cv2.IMREAD_ANYCOLOR), cv2.imread(image2_loc, cv2.IMREAD_ANYCOLOR)
 
 def write_img_to_file(cv_out) :
-    cv2.imwrite(output_name, cv_out)
+    cv2.imwrite(image_path + output_name, cv_out)
+
+
+class AddWindow(QWidget):
+    k1 = 1
+    k2 = 1
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Add Window")
+        self.label = QLabel("Another Window")
+        self.k1Line = QLineEdit()
+        self.k1Line.setText(str(self.k1))
+        self.k1Line.move(20, 20)
+        self.k1Line.resize(140,20)
+
+        self.k2Line = QLineEdit()
+        self.k2Line.setText(str(self.k2))
+        self.k2Line.move(20, 20)
+        self.k2Line.resize(140,20)
+        self.img1 = QLabel(image_name + " +")
+        self.img2 = QLabel(image2_name)
+        self.out = QLabel("= " + output_name)
+
+        onlyInt = QIntValidator()
+        onlyInt.setRange(-100, 100)
+        self.k1Line.setValidator(onlyInt)
+        self.k2Line.setValidator(onlyInt)
+
+        self.k1Line.textChanged.connect(self.add)
+        self.k2Line.textChanged.connect(self.add)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.k1Line)
+        hbox.addWidget(self.img1)
+        hbox.addWidget(self.k2Line)
+        hbox.addWidget(self.img2)
+        hbox.addWidget(self.out)
+
+        self.setLayout(hbox)
+
+
+    def add(self):
+        if (self.k1Line.text() == '' or self.k1Line.text() == '-'):
+            self.k1 = 0
+        else :
+            self.k1 = int(self.k1Line.text())
+
+        if (self.k2Line.text() == '' or self.k1Line.text() == '-'):
+            self.k2 = 0
+        else :
+            self.k2 = int(self.k2Line.text())
+
+        a.add(self.k1, self.k2)
 
 
 def main() :
@@ -230,9 +290,10 @@ def main() :
 
     screen = app.primaryScreen()
     rect = screen.availableGeometry()
+    global a
     a = App(rect.width(), rect.height())
-    print("--> Running Matrix Operations Visualizer")
-    print("--> Source Code: github.com/dgorbunov")
+    print("--> Running Matrix Math Visualizer")
+    print("--> Source Code: https://github.com/dgorbunov")
 
     a.show()
     sys.exit(app.exec_())
@@ -240,7 +301,6 @@ def main() :
 
 if __name__=="__main__":
     main()
-
 
 
 # def mathTex_to_QPixmap(self, mathTex, fs):
