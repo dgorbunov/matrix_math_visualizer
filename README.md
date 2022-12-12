@@ -1,5 +1,6 @@
 ## Image Operation Visualizer
 Tool to visualize various mathematical matrix operations on  images. Created for Cristian Rodriguez's Fall 2022 MATH235 Linear Algebra class.
+![The App](https://github.com/dgorbunov/matrix_math_visualizer/blob/main/app.png)
 
 ## Installation:
 1. Install Python from the Python website/update it to the latest version
