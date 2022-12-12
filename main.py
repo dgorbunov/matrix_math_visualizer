@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QMessageBox, QLineEdit
-from PyQt5.QtGui import QPixmap, QImage, QColor, QIntValidator
+from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QComboBox
+from PyQt5.QtGui import QPixmap, QImage, QColor, QDoubleValidator, QIntValidator
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt,QObject, QRect
 
 # mpl.rcParams["text.usetex"] = True
@@ -28,7 +28,6 @@ class App(QWidget):
     cv_out = np.zeros(output_size, dtype=np.uint8)
     app_width = 0
     app_height = 0
-    AddWindow = None
 
     def __init__(self, width, height):
         super().__init__()
@@ -63,13 +62,13 @@ class App(QWidget):
 
         # self.setFixedWidth(self.display_width)
 
-        color_button = QPushButton("Color <--> Grayscale")
-        color_button.clicked.connect(self.color_button)
+        self.color_button = QPushButton("Grayscale")
+        self.color_button.clicked.connect(self.color_button_f)
 
         blur_button = QPushButton("Blur...")
         blur_button.clicked.connect(self.blur_button)
 
-        add_button = QPushButton("Addition/Subtraction...")
+        add_button = QPushButton("Linear Combination...")
         add_button.clicked.connect(self.add_button)
 
         mult_button = QPushButton("Multiplication/Division...")
@@ -80,6 +79,9 @@ class App(QWidget):
 
         transpose_button = QPushButton("Transpose")
         transpose_button.clicked.connect(self.transpose_button)
+
+        rotate_button = QPushButton("Rotate")
+        rotate_button.clicked.connect(self.rotate_button)
 
         reset_button = QPushButton("Reset")
         reset_button.clicked.connect(self.reset_button)
@@ -106,12 +108,13 @@ class App(QWidget):
         image_hbox.addLayout(output_vlabel)
         output_vlabel.addWidget(self.output)
         output_vlabel.addWidget(self.output_text)
-        vbox.addWidget(color_button)
+        vbox.addWidget(self.color_button)
         vbox.addWidget(blur_button)
         vbox.addWidget(add_button)
         vbox.addWidget(mult_button)
         vbox.addWidget(bitwise_button)
         vbox.addWidget(transpose_button)
+        vbox.addWidget(rotate_button)
         vbox.addWidget(reset_button)
         # set the vbox layout as the widgets layout
         self.setLayout(vbox)
@@ -122,37 +125,66 @@ class App(QWidget):
         self.update_out()
 
     # button callback
-    def color_button(self):
+    def color_button_f(self):
         print("Swapping colorspaces")
 
         if len(self.cv_img.shape) == 3:
             self.cv_img = cv2.cvtColor(self.cv_img, cv2.COLOR_BGR2GRAY)
             self.cv_img2 = cv2.cvtColor(self.cv_img2, cv2.COLOR_BGR2GRAY)
             self.cv_out = cv2.cvtColor(self.cv_out, cv2.COLOR_BGR2GRAY)
+            self.color_button.setText('Color (Reset)')
         else :
             self.reset_button()
+            self.color_button.setText('Grayscale')
 
         self.update_img()
         self.update_img2()
         self.update_out()
 
     # button callback
-    def blur_button(self):
-        print("Image blurred")
-        self.cv_out = cv2.blur(self.cv_img,(25,25))
+    def rotate_button(self):
+        cols = self.cv_out.shape[0]
+        rows = self.cv_out.shape[1]
+        theta = 30
+
+        M = cv2.getRotationMatrix2D((cols/2,rows/2), theta, 1)
+        self.cv_out = cv2.warpAffine(self.cv_out, M, (cols,rows))
         self.update_out()
 
     # button callback
+    def blur_button(self):
+        print("Blurring")
+
+        self.w = BlurWindow()
+        self.w.setGeometry(popup_size)
+        self.w.show()
+
+    # math calculations
+    def blur(self, kernel_size, img_select):
+        image = None
+        if img_select == image_name:
+            self.cv_img = cv2.blur(self.cv_img, kernel_size)
+            self.update_img()
+        elif img_select == image2_name:
+            self.cv_img2 = cv2.blur(self.cv_img2, kernel_size)
+            self.update_img2()
+        else :
+            self.cv_out = cv2.blur(self.cv_out, kernel_size)
+            self.update_out()
+
+
+    # button callback
     def add_button(self):
-        print("Image added")
+        print("Linear Combination")
 
-        self.addWindow = AddWindow()
-        self.addWindow.setGeometry(popup_size)
-        self.addWindow.show()
+        self.w = AddWindow()
+        self.w.setGeometry(popup_size)
+        self.w.show()
 
+    # math calculations
     def add(self, k1, k2):
-        print('hit', k1, k2)
         self.cv_out = k1 * self.cv_img + k2 * self.cv_img2
+        self.cv_out = np.around(self.cv_out).astype(np.uint8)
         self.update_out()
 
     # button callback
@@ -170,7 +202,7 @@ class App(QWidget):
     # button callback
     def transpose_button(self):
         print("Image transposed")
-        self.cv_out = cv2.transpose(self.cv_img)
+        self.cv_out = cv2.transpose(self.cv_out)
         self.update_out()
 
     # button callback
@@ -196,7 +228,6 @@ class App(QWidget):
         self.image2_text.setAlignment(Qt.AlignCenter)
 
     def update_out(self):
-        print('writing out')
         self.output.setPixmap(self.convert_cv_qt(self.cv_out))
         self.output_text = QLabel(output_name + " (" + str(self.cv_out.shape[0]) + "x" + str(self.cv_out.shape[1]) + ")")
         self.output_text.setAlignment(Qt.AlignCenter)
@@ -208,7 +239,7 @@ class App(QWidget):
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
         convert_to_Qt_format = QtGui.QImage(rgb_image.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
-        p = convert_to_Qt_format.scaled(self.app_width / 3.5, self.app_width / 3.5, Qt.KeepAspectRatio)
+        p = convert_to_Qt_format.scaled(self.app_width / 4, self.app_width / 4, Qt.KeepAspectRatio)
         return QPixmap.fromImage(p)
 
 
@@ -232,14 +263,14 @@ def write_img_to_file(cv_out) :
     cv2.imwrite(image_path + output_name, cv_out)
 
 
+
 class AddWindow(QWidget):
     k1 = 1
     k2 = 1
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Add Window")
-        self.label = QLabel("Another Window")
+        self.setWindowTitle("Linear Combination")
         self.k1Line = QLineEdit()
         self.k1Line.setText(str(self.k1))
         self.k1Line.move(20, 20)
@@ -253,11 +284,6 @@ class AddWindow(QWidget):
         self.img2 = QLabel(image2_name)
         self.out = QLabel("= " + output_name)
 
-        onlyInt = QIntValidator()
-        onlyInt.setRange(-100, 100)
-        self.k1Line.setValidator(onlyInt)
-        self.k2Line.setValidator(onlyInt)
-
         self.k1Line.textChanged.connect(self.add)
         self.k2Line.textChanged.connect(self.add)
 
@@ -270,20 +296,87 @@ class AddWindow(QWidget):
 
         self.setLayout(hbox)
 
+        self.add()
+
 
     def add(self):
-        if (self.k1Line.text() == '' or self.k1Line.text() == '-'):
+        if (self.k1Line.text() == ''):
             self.k1 = 0
         else :
-            self.k1 = int(self.k1Line.text())
+            try:
+                self.k1 = float(self.k1Line.text())
+            except ValueError:
+                print('Please enter a float in field 1')
 
-        if (self.k2Line.text() == '' or self.k1Line.text() == '-'):
+        if (self.k2Line.text() == ''):
             self.k2 = 0
         else :
-            self.k2 = int(self.k2Line.text())
+            try:
+                self.k2 = float(self.k2Line.text())
+            except ValueError:
+                print('Please enter a float in field 2')
 
         a.add(self.k1, self.k2)
 
+class BlurWindow(QWidget):
+    k1 = 5
+    k2 = 5
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Blur")
+        self.k1Line = QLineEdit()
+        self.k1Line.setText(str(self.k1))
+        self.k1Line.move(20, 20)
+        self.k1Line.resize(140,20)
+
+        self.k2Line = QLineEdit()
+        self.k2Line.setText(str(self.k2))
+        self.k2Line.move(20, 20)
+        self.k2Line.resize(140,20)
+
+        onlyInt = QIntValidator()
+        onlyInt.setRange(0, 10000)
+        self.k1Line.setValidator(onlyInt)
+        self.k2Line.setValidator(onlyInt)
+
+        self.img_select = QComboBox()
+        self.img_select.addItem(image_name)
+        self.img_select.addItem(image2_name)
+        self.img_select.addItem(output_name)
+
+        render_button = QPushButton("Render")
+        render_button.clicked.connect(self.blur)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.k1Line)
+        hbox.addWidget(self.k2Line)
+        hbox.addWidget(self.img_select)
+        hbox.addWidget(render_button)
+
+        self.setLayout(hbox)
+
+        self.blur()
+
+
+    def blur(self):
+        if (self.k1Line.text() == '' or self.k1Line.text() == '0'):
+            self.k1 = 1
+        else :
+            try:
+                self.k1 = int(self.k1Line.text())
+            except ValueError:
+                print('Please enter an int')
+
+        if (self.k2Line.text() == '' or self.k2Line.text() == '0'):
+            self.k2 = 1
+        else :
+            try:
+                self.k2 = int(self.k2Line.text())
+            except ValueError:
+                print('Please enter an int')
+
+        a.blur((self.k1, self.k2), self.img_select.currentText())
 
 def main() :
     app = QApplication(sys.argv)
