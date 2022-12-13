@@ -260,22 +260,25 @@ class App(QWidget):
         self.w.show()
 
     # function callback
-    def bitwise(self, cv_img, cv_img2, operation):
-        if cv_img == image_name:
+    def bitwise(self, cv_str, cv_str2, operation):
+        cv_img = None
+        cv_img2 = None
+
+        if cv_str == image_name:
             cv_img = self.cv_img
-        elif cv_img == image2_name:
+        elif cv_str == image2_name:
             cv_img = self.cv_img2
         else:
             cv_img = self.cv_out
 
-        if cv_img2 == image_name:
+        if cv_str2 == image_name:
             cv_img2 = self.cv_img
-        elif cv_img2 == image2_name:
+        elif cv_str2 == image2_name:
             cv_img2 = self.cv_img2
         else:
             cv_img2 = self.cv_out
 
-        if operation == "AND" :
+        if operation == "AND":
             self.cv_out = cv2.bitwise_and(cv_img, cv_img2)
         elif operation == "OR":
             self.cv_out = cv2.bitwise_or(cv_img, cv_img2)
@@ -480,6 +483,7 @@ class BitwiseWindow(QWidget):
         self.img2_select.addItem(image_name)
         self.img2_select.addItem(image2_name)
         self.img2_select.addItem(output_name)
+        self.img2_select.setCurrentIndex(1)
 
         self.operator_select = QComboBox()
         self.operator_select.addItem("AND")
