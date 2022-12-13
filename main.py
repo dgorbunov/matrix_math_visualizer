@@ -2,17 +2,11 @@ import sys
 import cv2
 import os.path
 import errno
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QComboBox
 from PyQt5.QtGui import QPixmap, QImage, QColor, QDoubleValidator, QIntValidator
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt,QObject, QRect
-
-# mpl.rcParams["text.usetex"] = True
-# mpl.rcParams['text.latex.preamble'] = r'\usepackage{{amsmath}}'
 
 image_path = 'images/'
 image_name = 'image.png'
@@ -20,12 +14,11 @@ image2_name = 'image2.png'
 output_name = 'output.png'
 
 popup_size = QRect(100, 100, 400, 200)
-output_size = 1024, 1024, 3
 
 class App(QWidget):
     cv_img = None
     cv_img2 = None
-    cv_out = np.zeros(output_size, dtype=np.uint8)
+    cv_out = None
     app_width = 0
     app_height = 0
 
@@ -35,9 +28,11 @@ class App(QWidget):
 
     def __init__(self, width, height):
         super().__init__()
+
         cv_imgs = read_img_from_file()
         self.cv_img = cv_imgs[0]
         self.cv_img2 = cv_imgs[1]
+        self.cv_out = np.zeros(output_size, dtype=np.uint8)
         self.app_width = width
         self.app_height = height
 
@@ -134,16 +129,17 @@ class App(QWidget):
 
     # button callback
     def color_button_f(self):
-        print("Swapping colorspaces")
 
         if len(self.cv_img.shape) == 3:
             self.cv_img = cv2.cvtColor(self.cv_img, cv2.COLOR_BGR2GRAY)
             self.cv_img2 = cv2.cvtColor(self.cv_img2, cv2.COLOR_BGR2GRAY)
             self.cv_out = cv2.cvtColor(self.cv_out, cv2.COLOR_BGR2GRAY)
             self.color_button.setText('Color (Reset)')
+            print('Grayscale')
         else :
             self.reset_button()
             self.color_button.setText('Grayscale')
+            print('Color')
 
         self.update_img()
         self.update_img2()
@@ -195,7 +191,7 @@ class App(QWidget):
 
     # button callback
     def blur_button(self):
-        print("Blurring")
+        print("Kernel Blur")
 
         self.w = BlurWindow()
         self.w.setGeometry(popup_size)
@@ -289,15 +285,16 @@ class App(QWidget):
 
     # button callback
     def transpose_button(self):
-        print("Image transposed")
+        print("Transpose")
         self.cv_out = cv2.transpose(self.cv_out)
         self.update_out()
 
     # button callback
     def reset_button(self):
-        print("Image reset")
-        self.cv_img = read_img_from_file()[0]
-        self.cv_img2 = read_img_from_file()[1]
+        print("Reset")
+        cv_imgs = read_img_from_file()
+        self.cv_img = cv_imgs[0]
+        self.cv_img2 = cv_imgs[1]
         self.cv_out = np.zeros(output_size, dtype=np.uint8)
 
         self.update_img()
@@ -345,11 +342,34 @@ def read_img_from_file() :
         print("Missing image file of name", image2_name)
         raise OSError(errno.ENOENT, "Missing image file at", image2_loc)
 
-    return cv2.imread(image_loc, cv2.IMREAD_ANYCOLOR), cv2.imread(image2_loc, cv2.IMREAD_ANYCOLOR)
+    img1 = cv2.imread(image_loc, cv2.IMREAD_ANYCOLOR)
+    img2 = cv2.imread(image2_loc, cv2.IMREAD_ANYCOLOR)
+
+    global output_size
+    output_size = img1.shape
+
+    if img1.shape != img2.shape:
+        dim = None
+
+        if img1.shape < img2.shape:
+            dim = (img1.shape[0], img1.shape[1])
+        else:
+            dim = (img2.shape[0], img2.shape[1])
+
+        if dim[0] < dim[1]:
+            dim = (dim[0], dim[0])
+        else:
+            dim = (dim[1], dim[1])
+
+        img1 = cv2.resize(img1, dsize=(dim))
+        img2 = cv2.resize(img2, dsize=(dim))
+
+        output_size = (dim[0], dim[1], 3)
+
+    return img1, img2
 
 def write_img_to_file(cv_out) :
     cv2.imwrite(image_path + output_name, cv_out)
-
 
 
 class AddWindow(QWidget):
@@ -443,8 +463,6 @@ class BlurWindow(QWidget):
         hbox.addWidget(render_button)
 
         self.setLayout(hbox)
-
-        self.blur()
 
 
     def blur(self):
