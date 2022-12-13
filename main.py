@@ -282,10 +282,8 @@ class App(QWidget):
             self.cv_out = cv2.bitwise_and(cv_img, cv_img2)
         elif operation == "OR":
             self.cv_out = cv2.bitwise_or(cv_img, cv_img2)
-        elif operation == "XOR":
-            self.cv_out = cv2.bitwise_xor(cv_img, cv_img2)
         else:
-            self.cv_out = cv2.bitwise_not(cv_img, cv_img2)
+            self.cv_out = cv2.bitwise_xor(cv_img, cv_img2)
 
         self.update_out()
 
@@ -489,7 +487,6 @@ class BitwiseWindow(QWidget):
         self.operator_select.addItem("AND")
         self.operator_select.addItem("OR")
         self.operator_select.addItem("XOR")
-        self.operator_select.addItem("NOT")
 
         self.out = QLabel("= " + output_name)
 
