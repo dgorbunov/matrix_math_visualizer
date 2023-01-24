@@ -5,8 +5,8 @@ Tool to visualize various mathematical and arithmetic operations on image matric
 ## Installation:
 1. Install Python3 from the Python website if you don't already have it.
 2. Install the following dependencies using these commands:
-  - Run `pip install opencv-python`
-  - Run `pip install PyQt5`
+  - Run `pip3 install opencv-python`
+  - Run `pip3 install PyQt5`
 
 ## Instructions for Use:
 1. Run `python3 main.py` to run the program.
