@@ -3,9 +3,8 @@ Tool to visualize various mathematical and arithmetic operations on image matric
 ![App](https://github.com/dgorbunov/matrix_math_visualizer/blob/main/app.png)
 
 ## Installation:
-1. Install Python from the Python website if you don't already have it.
+1. Install Python3 from the Python website if you don't already have it.
 2. Install the following dependencies using these commands:
-  - Run `pip install numpy`
   - Run `pip install opencv-python`
   - Run `pip install PyQt5`
 
